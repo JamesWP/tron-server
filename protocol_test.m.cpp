@@ -6,10 +6,9 @@ int main(int argc, char **argv)
 {
     printf("testing\n");
     for (int i = 1; i < argc; ++i) {
-        switch (protocol::lex(argv[i])) {
-            case protocol::VALID: printf("valid\n"); break;
-            case protocol::ERR: printf("error\n"); break;
-        }
+        std::string input{argv[i]};
+        auto parsed = protocol::parse_client_input(input);
+        std::visit(protocol::input_print_visitor{}, parsed);
     }
     return 0;
 }
