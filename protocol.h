@@ -3,6 +3,8 @@
 #include <string>
 #include <variant>
 #include <iostream>
+#include <memory>
+#include <string_view>
 
 namespace protocol {
 
@@ -18,9 +20,13 @@ public:
 
 class chat 
 {
-  std::string message; 
+  std::string d_message;
 
 public:
+  chat(std::string_view msg):d_message{msg.data(), msg.length()}{}
+
+  const std::string& message() const { return d_message; }
+
   friend std::ostream& operator<<(std::ostream&, const chat&);
 };
 

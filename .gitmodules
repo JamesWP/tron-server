@@ -1,0 +1,3 @@
+[submodule "third-party/uvw"]
+	path = third-party/uvw
+	url = git@github.com:skypjack/uvw.git

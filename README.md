@@ -4,7 +4,7 @@
 
 ```
 $ cmake
-$ re2c
+$ re2c ( needs --tags support > 0.16 or more, not sure )
 ```
 
 ## building

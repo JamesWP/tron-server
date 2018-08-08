@@ -1,5 +1,5 @@
 IF(NOT RE2C_FOUND)
-	FIND_PROGRAM (RE2C_EXE NAMES re2c)
+	FIND_PROGRAM (RE2C_EXE NAMES re2c HINTS /usr/bin/ /usr/local/bin)
 
 	IF (RE2C_EXE)
 		SET(RE2C_FOUND TRUE CACHE BOOL "Whether re2c has been found")
@@ -7,7 +7,7 @@ IF(NOT RE2C_FOUND)
 
 	IF (RE2C_FOUND)
 		IF (NOT RE2C_FIND_QUIETLY)
-			MESSAGE(STATUS "Looking for re2c... - found ${RE2C_EXECUTABLE}")
+			MESSAGE(STATUS "Looking for re2c... - found ${RE2C_EXE}")
 		ENDIF ()
 	ELSE ()
 		IF (RE2C_FIND_REQUIRED)
