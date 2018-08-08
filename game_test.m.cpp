@@ -7,13 +7,12 @@
 
 #include <iostream>
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char *argv[]) {
     game_controler gc;
 
     std::cout << "game:\n";
 
-    gc.add_player(10,10);
+    gc.add_player(10ul, 10ul, 'G', "Grant", direction::RIGHT);
     gc.draw(std::cout);
 
     std::cout << "\n";

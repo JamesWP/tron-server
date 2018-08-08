@@ -57,8 +57,8 @@ public:
         }
     }
 
-    std::ostream &operator<<(std::ostream &out) const {
-        return (out << this->str());
+    friend std::ostream &operator<<(std::ostream &out, const direction &d) {
+        return (out << d.str());
     }
 };
 
@@ -73,8 +73,10 @@ class player {
     direction d_facing{direction::UP};
 
 public:
-    player(std::size_t desired_x_offset, std::size_t desired_y_offset) :
-            d_x_offset{desired_x_offset}, d_y_offset{desired_y_offset} {}
+    player(std::size_t desired_x_offset, std::size_t desired_y_offset, char
+    ch, std::string name, direction::Value facing) :
+            d_x_offset{desired_x_offset}, d_y_offset{desired_y_offset},
+            d_char{ch}, d_name{std::move(name)}, d_facing{facing} {}
 
     bool at(std::size_t y_offset, std::size_t x_offset) const {
         return std::tie(d_x_offset, d_y_offset) == std::tie(x_offset, y_offset);
@@ -88,6 +90,8 @@ public:
         return std::make_pair
                 (d_x_offset, d_y_offset);
     }
+
+    direction facing() const { return d_facing; }
 };
 
 class board {
@@ -112,9 +116,11 @@ class game_controler {
 
 public:
 
-    int add_player(std::size_t x_offset, std::size_t y_offset) {
+    template<typename ...Args>
+    int add_player(Args ...a) {
         int id = d_next_id++;
-        d_players.emplace(std::make_pair(id, player{x_offset, y_offset}));
+        d_players.emplace(std::make_pair(id, player{std::forward<decltype(a)>
+                                                            (a)...}));
         return id;
     }
 
@@ -128,7 +134,7 @@ public:
             auto &player = player_pair.second;
             out << "Player '" << player.ch() << "' \"" << player.name() <<
                 "\" @" << player.loc().first << "x," << player.loc().second
-                << "y " <<
+                << "y " << "facing " << player.facing() <<
                 "\n";
         }
 
