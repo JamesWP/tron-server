@@ -4,108 +4,142 @@
 
 #pragma once
 
-#include <set>
-#include <memory>
-#include <iostream>
-#include <unordered_map>
+#include "elements.h"
+
 #include <algorithm>
-
-class direction {
-public:
-    enum Value {
-        UP = 0, RIGHT, DOWN, LEFT,
-        UP_AGAIN = 4, LEFT_AGAIN = -1
-    };
-
-private:
-    int d_v{UP};
-
-public:
-    direction(Value v) : d_v{v} {}
-
-    // turn left
-    direction &operator--(int) {
-        d_v--;
-
-        if (d_v == LEFT_AGAIN) d_v = LEFT;
-
-        return *this;
-    }
-
-    // turn right
-    direction &operator++(int) {
-        d_v++;
-
-        if (d_v == UP_AGAIN) d_v = UP;
-
-        return *this;
-    }
-
-    char str() const {
-        switch (d_v) {
-            case UP:
-                return 'U';
-            case LEFT:
-                return 'L';
-            case RIGHT:
-                return 'R';
-            case DOWN:
-                return 'D';
-
-            default:
-                std::terminate();
-        }
-    }
-
-    friend std::ostream &operator<<(std::ostream &out, const direction &d) {
-        return (out << d.str());
-    }
-};
+#include <iostream>
+#include <memory>
+#include <vector>
+#include <set>
+#include <unordered_map>
+#include <cassert>
 
 class player {
-    // offsets are from top left
-    std::size_t d_x_offset;
-    std::size_t d_y_offset;
-
-    char d_char{'P'};
-    std::string d_name{"Player"};
+    pos d_pos;
+    const char d_char{'P'};
+    const std::string d_name{"Player"};
 
     direction d_facing{direction::UP};
 
-public:
-    player(std::size_t desired_x_offset, std::size_t desired_y_offset, char
-    ch, std::string name, direction::Value facing) :
-            d_x_offset{desired_x_offset}, d_y_offset{desired_y_offset},
-            d_char{ch}, d_name{std::move(name)}, d_facing{facing} {}
+    direction d_last_moved_facing{direction::UP};
+    // the direction the last movement.
 
-    bool at(std::size_t y_offset, std::size_t x_offset) const {
-        return std::tie(d_x_offset, d_y_offset) == std::tie(x_offset, y_offset);
+    std::vector<vertex> d_history;
+
+    vector_line_hitbox d_hitbox;
+
+    bool d_alive{true};
+
+private:
+    inline void move(float speed);
+
+public:
+    player(pos pos, char ch, std::string name, direction::Value facing)
+            : d_pos{pos}, d_char{ch}, d_name{std::move(name)}, d_facing{facing},
+              d_last_moved_facing{facing} {
+        d_history.push_back({d_pos, d_facing});
     }
+
+    // not really usefull now
+    bool at(const pos &pos) const { return d_pos == pos; }
 
     char ch() const { return d_char; }
 
     std::string_view name() const { return d_name; }
 
-    std::pair<std::size_t, std::size_t> loc() const {
-        return std::make_pair
-                (d_x_offset, d_y_offset);
-    }
+    pos loc() const { return d_pos; }
 
     direction facing() const { return d_facing; }
+
+    void tick_update() {
+        static constexpr float speed = 1.0;
+        move(speed);
+    }
+
+    void move(direction dir) { d_facing = dir; }
+
+    void debug_history(std::ostream &out) const {
+        out << '[';
+        for (auto &&hpos: d_history) {
+            out << hpos << ',';
+        }
+        out << ']';
+    }
+
+    const hitbox &hbx() const { return d_hitbox; }
+
+    void mark_dead() {
+        if (d_alive) {
+            d_alive = false;
+        }
+    }
+
+    void draw(std::ostream &out) const;
 };
 
+inline
+void player::move(float speed) {
+    float x_direction, y_direction;
+    switch (d_facing.val()) {
+        case direction::UP:
+            x_direction = 0.0;
+            y_direction = -1.0;
+            break;
+        case direction::LEFT:
+            x_direction = -1.0;
+            y_direction = 0.0;
+            break;
+        case direction::RIGHT:
+            x_direction = 1.0;
+            y_direction = 0.0;
+            break;
+        case direction::DOWN:
+            x_direction = 0.0;
+            y_direction = 1.0;
+            break;
+        default:
+            std::terminate();
+    }
+
+    pos last = d_pos;
+
+    d_pos.x_offset() += x_direction * speed;
+    d_pos.y_offset() += y_direction * speed;
+
+    if (d_last_moved_facing != d_facing) {
+        // this is the first update in the new direction
+
+        // save the last position and update from previous path
+        d_history.push_back({d_pos, d_facing});
+
+        d_last_moved_facing = d_facing;
+    }
+}
+
+inline
+void player::draw(std::ostream &out) const {
+    out << "Player '" << this->ch() << "' \"" << this->name()
+        << "\" @" << this->loc().first << "x," << this->loc().second
+        << "y "
+        << "facing " << this->facing();
+}
+
 class board {
-    std::size_t d_width;
-    std::size_t d_height;
+    const float d_width;
+    const float d_height;
+
+    const vector_line_hitbox d_hitbox;
 
 public:
-    board(std::size_t desired_width, std::size_t desired_height)
-            : d_width{desired_width},
-              d_height{desired_height} {}
+    board(float desired_width, float desired_height)
+            : d_width{desired_width}, d_height{desired_height}, d_hitbox{} {
+    }
 
-    std::size_t height() const { return d_height; }
+    float height() const { return d_height; }
 
-    std::size_t width() const { return d_width; }
+    float width() const { return d_width; }
+
+    const hitbox &hbx() const { return d_hitbox; }
 };
 
 class game_controler {
@@ -114,55 +148,118 @@ class game_controler {
 
     int d_next_id{0};
 
-public:
+private:
+    template<typename Fun>
+    void visit_players(Fun f) {
+        for (auto &&player_pair : d_players) {
+            auto &player = player_pair.second;
+            f(player);
+        }
+    }
 
-    template<typename ...Args>
-    int add_player(Args ...a) {
+    template<typename Fun>
+    void visit_players(Fun f) const {
+        for (auto &&player_pair : d_players) {
+            auto &player = player_pair.second;
+            f(player);
+        }
+    }
+
+    template<typename Fun>
+    void visit_ids(Fun f) const {
+        for (auto &&player_pair : d_players) {
+            auto &player_id = player_pair.first;
+            f(player_id);
+        }
+    }
+
+    template<typename Fun>
+    void visit_players_excluding(int id, Fun f) {
+        auto visit_excuding = [this, id, &f](int player_id) {
+            if (player_id != id) {
+                f(get_player(player_id));
+            }
+        };
+        visit_ids(visit_excuding);
+    }
+
+    template<typename Fun>
+    void pairwise_visit_players(Fun f) {
+        auto visit_pair = [this, &f](int first_player_id) {
+            auto &first_player = get_player(first_player_id);
+            auto visit_pair = [&f, &first_player](auto &&second_player) {
+                f(first_player, second_player);
+            };
+            visit_players_excluding(first_player_id, visit_pair);
+        };
+        visit_ids(visit_pair);
+    }
+
+    player &get_player(int id) {
+        assert(d_players.find(id) != d_players.end());
+
+        return d_players.find(id)->second;
+    }
+
+public:
+    template<typename... Args>
+    int add_player(Args... a) {
         int id = d_next_id++;
-        d_players.emplace(std::make_pair(id, player{std::forward<decltype(a)>
-                                                            (a)...}));
+        d_players.emplace(
+                std::make_pair(id, player{std::forward<decltype(a)>(a)...}));
         return id;
     }
 
     std::ostream &draw(std::ostream &out) const {
-
+        out << "Board:\n";
+        out << "\t";
         out << d_game.width() << " x " << d_game.height() << "\n";
-
+        out << "\t";
         out << d_players.size() << " players\n";
 
-        for (auto &&player_pair: d_players) {
-            auto &player = player_pair.second;
-            out << "Player '" << player.ch() << "' \"" << player.name() <<
-                "\" @" << player.loc().first << "x," << player.loc().second
-                << "y " << "facing " << player.facing() <<
-                "\n";
-        }
+        auto print_player = [&out](auto &&player) {
+            out << "\t";
+            out << "\t";
+            player.draw(out);
 
-        out << "Board:\n";
-        for (int row = 0; row < d_game.height(); row++) {
-            for (int col = 0; col < d_game.width(); col++) {
-                out << "[";
-                if (player_at(row, col)) {
-                    out << "P";
-                } else {
-                    out << " ";
-                }
-                out << "]";
-            }
+            out << "\n\t\t";
+            player.debug_history(out);
+
             out << "\n";
-        }
+        };
+
+        visit_players(print_player);
 
         return out;
     }
 
-    bool player_at(int row, int col) const {
-        auto player_here = [row, col](auto &&player) {
-            return player.second.at(row, col);
-        };
-        return find_if(
-                d_players.begin(),
-                d_players.end(),
-                player_here) != d_players.end();
+    player const &get_player(int id) const {
+        assert(d_players.find(id) != d_players.end());
+
+        return d_players.find(id)->second;
     }
+
+    void tick_update() {
+        auto update_player = [](auto &&player) {
+            player.tick_update();
+        };
+
+        visit_players(update_player);
+
+        auto test_collisions = [](auto &&first_player, auto &&second_player) {
+            if (collides(first_player.hbx(), second_player.hbx())) {
+                first_player.mark_dead();
+            }
+        };
+
+        pairwise_visit_players(test_collisions);
+    }
+
+    void player_move(int id, direction new_dir) {
+        player &player = get_player(id);
+        player.move(new_dir);
+    }
+
+private:
 };
 
