@@ -14,6 +14,10 @@
 #include <unordered_map>
 #include <cassert>
 
+static const pos &get_pos(std::vector<vertex>::const_iterator it) {
+    return it->d_pos;
+}
+
 class player {
     pos d_pos;
     const char d_char{'P'};
@@ -24,9 +28,11 @@ class player {
     direction d_last_moved_facing{direction::UP};
     // the direction the last movement.
 
-    std::vector<vertex> d_history;
+    line_segment d_last_segment;
 
-    vector_line_hitbox d_hitbox;
+    std::vector<vertex> d_history{};
+
+    vector_ref_with_end<vertex, decltype(&get_pos)> d_hitbox;
 
     bool d_alive{true};
 
@@ -36,7 +42,8 @@ private:
 public:
     player(pos pos, char ch, std::string name, direction::Value facing)
             : d_pos{pos}, d_char{ch}, d_name{std::move(name)}, d_facing{facing},
-              d_last_moved_facing{facing} {
+              d_last_moved_facing{facing}, d_last_segment{d_pos, d_pos},
+              d_hitbox{&d_history, &d_pos, &get_pos} {
         d_history.push_back({d_pos, d_facing});
     }
 
@@ -71,10 +78,15 @@ public:
     void mark_dead() {
         if (d_alive) {
             d_alive = false;
+            std::cout << d_char << " dies\n";
         }
     }
 
     void draw(std::ostream &out) const;
+
+    const line_segment &last_segment() const {
+        return d_last_segment;
+    }
 };
 
 inline
@@ -106,6 +118,8 @@ void player::move(float speed) {
     d_pos.x_offset() += x_direction * speed;
     d_pos.y_offset() += y_direction * speed;
 
+    d_last_segment = line_segment{last, d_pos};
+
     if (d_last_moved_facing != d_facing) {
         // this is the first update in the new direction
 
@@ -124,6 +138,12 @@ void player::draw(std::ostream &out) const {
         << "facing " << this->facing();
 }
 
+static std::vector<line_segment> get_board_edges(float width, float height) {
+    std::vector<line_segment> res;
+
+    return res;
+}
+
 class board {
     const float d_width;
     const float d_height;
@@ -132,7 +152,8 @@ class board {
 
 public:
     board(float desired_width, float desired_height)
-            : d_width{desired_width}, d_height{desired_height}, d_hitbox{} {
+            : d_width{desired_width}, d_height{desired_height},
+              d_hitbox{get_board_edges(desired_width, desired_height)} {
     }
 
     float height() const { return d_height; }
@@ -205,8 +226,9 @@ public:
     template<typename... Args>
     int add_player(Args... a) {
         int id = d_next_id++;
-        d_players.emplace(
-                std::make_pair(id, player{std::forward<decltype(a)>(a)...}));
+        d_players.emplace(std::piecewise_construct, std::forward_as_tuple(id),
+                          std::forward_as_tuple(
+                                  std::forward<decltype(a)>(a)...));
         return id;
     }
 
@@ -247,7 +269,7 @@ public:
         visit_players(update_player);
 
         auto test_collisions = [](auto &&first_player, auto &&second_player) {
-            if (collides(first_player.hbx(), second_player.hbx())) {
+            if (collides(first_player.last_segment(), second_player.hbx())) {
                 first_player.mark_dead();
             }
         };

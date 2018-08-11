@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <functional>
+#include <cassert>
 
 class direction {
 public:
@@ -114,30 +115,70 @@ struct line_segment : public std::pair<pos, pos> {
 class hitbox {
 
 public:
-    virtual void visit(std::function<void(const line_segment& segment)> f)
+    virtual void visit(std::function<void(const line_segment &segment)> f)
     const = 0;
 };
 
-class single_line_hitbox : public hitbox{
+class single_line_hitbox : public hitbox {
     const line_segment d_ls;
 
 public:
-    void visit(std::function<void(const line_segment& segment)> f) const
-    {
+    void visit(std::function<void(const line_segment &segment)> f) const {
         f(d_ls);
     }
 };
 
-class vector_line_hitbox : public hitbox{
+class vector_line_hitbox : public hitbox {
     const std::vector<line_segment> d_ls;
 
 public:
-    void visit(std::function<void(const line_segment& segment)> f) const
-    {
-        for(auto& ls : d_ls){
+
+    vector_line_hitbox(std::vector<line_segment> ls) : d_ls{std::move(ls)} {}
+
+    void visit(std::function<void(const line_segment &segment)> f) const {
+        for (auto &ls : d_ls) {
             f(ls);
         }
     }
 };
 
+template<typename VecT, typename Func>
+class vector_ref_with_end : public hitbox {
+    const std::vector<VecT> *d_vec_ref;
+    const pos *d_pos_ref;
+    const Func d_func;
+
+public:
+    vector_ref_with_end(vector_ref_with_end&&) = delete;
+    void operator=(vector_ref_with_end&&) = delete;
+
+    vector_ref_with_end(const std::vector<VecT> *vec_ref, const pos *pos_ref,
+            Func f) :
+            d_vec_ref{vec_ref}, d_pos_ref{pos_ref}, d_func{f} {
+        assert(vec_ref);
+        assert(pos_ref);
+    }
+
+    void visit(std::function<void(const line_segment &segment)> f) const {
+        if(d_vec_ref->size()<1) return;
+
+        for (auto cur = d_vec_ref->begin(); cur != d_vec_ref->end(); cur++) {
+
+            if(cur+1 == d_vec_ref->end()) break;
+
+            const pos& start = d_func(cur);
+            const pos& end = d_func(cur+1);
+
+            line_segment ls{start, end};
+            f(ls);
+        }
+        const pos& last = d_func(d_vec_ref->end());
+        line_segment ls{last, *d_pos_ref};
+
+        f(ls);
+    }
+};
+
 bool collides(const hitbox &h0, const hitbox &h2);
+
+bool collides(const line_segment &ls, const hitbox &h);
