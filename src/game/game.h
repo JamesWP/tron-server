@@ -78,9 +78,10 @@ public:
     void mark_dead() {
         if (d_alive) {
             d_alive = false;
-            std::cout << d_char << " dies\n";
         }
     }
+
+    bool alive() const { return d_alive; }
 
     void draw(std::ostream &out) const;
 
@@ -255,7 +256,7 @@ public:
         return out;
     }
 
-    player const &get_player(int id) const {
+    player const &cget_player(int id) const {
         assert(d_players.find(id) != d_players.end());
 
         return d_players.find(id)->second;

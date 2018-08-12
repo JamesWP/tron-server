@@ -40,6 +40,7 @@ add_subdirectory(src)
   get_property(_TEST_LIBS GLOBAL PROPERTY TEST_LIBS)
   get_property(_TEST_SRCS GLOBAL PROPERTY TEST_SRCS)
   add_executable(tests ${_TEST_SRCS})
+  add_test(NAME "unit_tests" COMMAND tests)
   target_link_libraries(tests ${_TEST_LIBS} ${GTEST_BOTH_LIBRARIES} ${GTEST_BOTH_LIBRARIES} pthread)
   target_compile_features(tests PUBLIC cxx_std_17)
 # -----------------------------------------------------------------------------

@@ -1,14 +1,19 @@
 
-#include <stdio.h>
 #include <protocol.h>
 
-int main(int argc, char **argv)
+#include <gtest/gtest.h>
+#include <stdio.h>
+
+TEST(Protocol, parse_client_input)
 {
-    printf("testing\n");
-    for (int i = 1; i < argc; ++i) {
-        std::string input{argv[i]};
-        auto parsed = protocol::parse_client_input(input);
-        std::visit(protocol::input_print_visitor{}, parsed);
-    }
-    return 0;
+    std::string input{"HELLO 1 1 1 username"}; 
+    auto parsed = protocol::parse_client_input(input);
+    ASSERT_TRUE(std::holds_alternative<protocol::hello>(parsed));
+}
+
+TEST(Protocol, parse_client_input_err)
+{
+    std::string input{"sdf;lsajdf"}; 
+    auto parsed = protocol::parse_client_input(input);
+    ASSERT_TRUE(std::holds_alternative<protocol::err>(parsed));
 }
