@@ -4,9 +4,12 @@
 
 #include "game.h"
 
+#include <gtest/gtest.h>
+
 #include <iostream>
 
-int main(int argc, char *argv[]) {
+TEST(Game, people_die)
+{
     game_controler gc;
 
     auto p_id = gc.add_player(pos{0.0, 0.0}, 'G', "Grant", direction::RIGHT);
@@ -36,5 +39,4 @@ int main(int argc, char *argv[]) {
 
     std::cout << "\n";
 
-    return 0;
 }

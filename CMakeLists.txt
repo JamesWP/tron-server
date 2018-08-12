@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.12)
+
+project(tron-server)
 
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}
@@ -7,31 +9,37 @@ set(CMAKE_MODULE_PATH
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/re2c.cmake)
 
-# protocl lib
-RE2C(PROTOCOL_SRCS "protocol.cpp.re")
-add_library(protocol-lib ${PROTOCOL_SRCS})
-target_include_directories(protocol-lib PUBLIC ".")
-target_compile_features(protocol-lib PUBLIC cxx_std_17)
+# -----------------------------------------------------------------------------
+# testing stuff
+# 
+# tldr: in other cmake lists call ADD_TEST_SRCS ADD_TEST_LIBS
+# -----------------------------------------------------------------------------
+  enable_testing()
+  find_package(GTest REQUIRED)
 
-# game lib
-set(GAME_SRCS "game.cpp" "elements.cpp")
-add_library(game-lib ${GAME_SRCS})
-target_include_directories(game-lib PUBLIC ".")
-target_compile_features(game-lib PUBLIC cxx_std_17)
+  define_property(GLOBAL PROPERTY TEST_LIBS BRIEF_DOCS "list of test libs" FULL_DOCS "list of test libs")
+  set_property(GLOBAL PROPERTY TEST_LIBS "")
+  macro(ADD_TEST_LIBS libs)
+    set_property(GLOBAL APPEND PROPERTY TEST_LIBS ${libs})
+  endmacro()
 
-# game test
-set(GAME_TEST_SRCS "game_test.m.cpp")
-add_executable(game-test ${GAME_TEST_SRCS})
-target_link_libraries(game-test PUBLIC game-lib)
-target_compile_features(game-test PUBLIC cxx_std_17)
+  define_property(GLOBAL PROPERTY TEST_SRCS BRIEF_DOCS "list of test srcs" FULL_DOCS "list of test srcs")
+  set_property(GLOBAL PROPERTY TEST_SRCS "")
+  macro(ADD_TEST_SRCS srcs)
+    set_property(GLOBAL APPEND PROPERTY TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/${srcs})
+  endmacro()
+# -----------------------------------------------------------------------------
 
-# protocol test
-set(PROTOCOL_TEST_SRCS "protocol_test.m.cpp")
-add_executable(protocol-test-parser ${PROTOCOL_TEST_SRCS})
-target_link_libraries(protocol-test-parser PUBLIC protocol-lib)
+add_subdirectory(src)
 
-# libuv test
-set(LIBUV_TEST_SRCS libuv_test.m.cpp)
-add_executable(libuv-test ${LIBUV_TEST_SRCS})
-target_link_libraries(libuv-test PUBLIC libuv.a pthread protocol-lib)
-
+# -----------------------------------------------------------------------------
+# testing stuff
+#
+# tldr: adding single test executable
+# -----------------------------------------------------------------------------
+  get_property(_TEST_LIBS GLOBAL PROPERTY TEST_LIBS)
+  get_property(_TEST_SRCS GLOBAL PROPERTY TEST_SRCS)
+  add_executable(tests ${_TEST_SRCS})
+  target_link_libraries(tests ${_TEST_LIBS} ${GTEST_BOTH_LIBRARIES} ${GTEST_BOTH_LIBRARIES} pthread)
+  target_compile_features(tests PUBLIC cxx_std_17)
+# -----------------------------------------------------------------------------
